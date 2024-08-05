@@ -25,13 +25,16 @@ async function bootstrap() {
     }) 
    );
 
+   logger.log(`Insumos Microservice running on port ${envs.port}`);
+
+   await app.listen();
+
   //await app.listen(envs.port);
 
   //app.startAllMicroservices(); podria tener un microservicio y comunicación por apirest
 
   //Logger.log(`App runnig on port ${envs.port}`);
   
-   logger.log(`Insumos Microservice running on port ${envs.port}`);
 
 }
 bootstrap();

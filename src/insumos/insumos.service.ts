@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CreateInsumoDto } from './dto/create-insumo.dto';
 import { UpdateInsumoDto } from './dto/update-insumo.dto';
 import { PrismaClient } from '@prisma/client';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class InsumosService extends PrismaClient implements OnModuleInit {
@@ -57,7 +58,10 @@ export class InsumosService extends PrismaClient implements OnModuleInit {
     })
 
     if(!insumo){
-      throw new NotFoundException(`Insunmo with id #${id} not found`)
+      throw new RpcException({
+        message:`Insunmo with id #${id} not found`,
+        status: HttpStatus.BAD_REQUEST
+      })
     }
 
     return insumo;
@@ -68,6 +72,8 @@ export class InsumosService extends PrismaClient implements OnModuleInit {
 
     const {id: __, ...data} = updateInsumoDto;
 
+    console.log(id);
+    console.log(updateInsumoDto);
 
     await this.findOne(id);
 
