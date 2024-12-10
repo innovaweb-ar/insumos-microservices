@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,31 +7,234 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Insumo {
-  id          Int    @id @default(autoincrement())
-  name        String
-  price       Float
-  category    String
-  subcategory String
-  code        String
-  description String 
-  condition   String
-  costPrice   Float
-  location    String
-  currentStock    Int
-  committedStock  Int
-  incomingStock   Int
-  minimunStock    Int
 
-  available Boolean @default(true)
+enum EstadoOrdenFabricacion {
+  PENDIENTE
+  EN_PROCESO
+  FINALIZADA
+  CANCELADA
+}
+
+enum EstadoOrdenCompra {
+  PENDIENTE
+  APROBADA
+  FINALIZADA
+  CANCELADA
+}
+
+enum EstadoCotizacion {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+enum TipoRemito {
+  ENTRADA
+  SALIDA
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+}
+
+model Insumo {
+  id             Int @id @default(autoincrement())
+  name           String
+  code           String @unique
+  description    String
+  condition      String
+  minimunStock   Int
+
+  available Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-
-  // available se utiliza en todas las consultas para verificar los productos eliminados
-  //Creamos un indice para mejorar la busqueda de los mismos
-
   @@index([available])
-  @@index([available, category])
-  @@index([available, subcategory])
+  Stock Stock[]
+  Reserva Reserva[]
+  ComponenteProducto ComponenteProducto[]
+  Movimiento Movimiento[]
+  CotizacionItem CotizacionItem[]
+}
+
+model ProductoFabricado {
+  id          Int       @id @default(autoincrement())
+  name        String
+  code        String    @unique
+  description String?
+  recetas     RecetaProducto[] // Relación con las recetas (actual e históricas)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  OrdenFabricacion OrdenFabricacion[]
+}
+
+model RecetaProducto {
+  id                Int       @id @default(autoincrement())
+  productoFabricado ProductoFabricado @relation(fields: [productoFabricadoId], references: [id])
+  productoFabricadoId Int
+  version           Int       // Número de versión de la receta
+  esActiva          Boolean   @default(true) // Indica si es la receta actual
+  componentes       ComponenteProducto[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([productoFabricadoId, version]) // Un producto no puede tener dos recetas con la misma versión
+}
+
+model ComponenteProducto {
+  id                Int       @id @default(autoincrement())
+  recetaProducto    RecetaProducto @relation(fields: [recetaProductoId], references: [id])
+  recetaProductoId  Int
+  insumoId          Int
+  insumo            Insumo      @relation(fields: [insumoId], references: [id])
+  cantidad          Float
+  unidad            String
+  createdAt         DateTime @default(now())
+}
+
+model Stock {
+  id           Int @id @default(autoincrement())
+  insumoId     Int
+  insumo       Insumo @relation(fields: [insumoId], references: [id])
+  depositoId   Int
+  deposito     Deposito @relation(fields: [depositoId], references: [id])
+  currentStock Int
+  committedStock Int
+  incomingStock Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([insumoId, depositoId])
+}
+
+model Deposito {
+  id        Int @id @default(autoincrement())
+  name      String
+  location  String
+  stocks    Stock[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Reserva   Reserva[]
+  Movimiento Movimiento[]
+  Remito    Remito[]
+}
+
+model Reserva {
+  id            Int @id @default(autoincrement())
+  insumoId      Int
+  insumo        Insumo @relation(fields: [insumoId], references: [id])
+  depositoId    Int
+  deposito      Deposito @relation(fields: [depositoId], references: [id])
+  cantidad      Int
+  estado        String // Estados específicos para reservas (puede ser ENUM si necesitas)
+  referenciaId  Int?
+  referenciaTipo String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([insumoId, depositoId])
+}
+
+model OrdenFabricacion {
+  id                Int @id @default(autoincrement())
+  numero            String @unique
+  productoFabricado ProductoFabricado @relation(fields: [productoFabricadoId], references: [id])
+  productoFabricadoId Int
+  cantidad          Int
+  estado            EstadoOrdenFabricacion // Usa el ENUM definido
+  fechaEmision      DateTime @default(now())
+  fechaEntrega      DateTime
+  observaciones     String?
+  remitos           Remito[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model OrdenCompra {
+  id            Int @id @default(autoincrement())
+  numero        String @unique
+  proveedorId   Int
+  proveedor     Proveedor @relation(fields: [proveedorId], references: [id])
+  estado        EstadoOrdenCompra // Usa el ENUM definido
+  fechaEmision  DateTime @default(now())
+  fechaEntrega  DateTime?
+  cotizaciones  Cotizacion[]
+  remitos       Remito[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Proveedor {
+  id        Int @id @default(autoincrement())
+  nombre    String
+  contacto  String
+  email     String
+  telefono  String?
+  direccion String?
+  ordenes   OrdenCompra[]
+  cotizaciones Cotizacion[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cotizacion {
+  id            Int @id @default(autoincrement())
+  ordenCompraId Int
+  ordenCompra   OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  proveedorId   Int
+  proveedor     Proveedor @relation(fields: [proveedorId], references: [id])
+  precioTotal   Float
+  estado        EstadoCotizacion // Usa el ENUM definido
+  items         CotizacionItem[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CotizacionItem {
+  id           Int @id @default(autoincrement())
+  cotizacionId Int
+  cotizacion   Cotizacion @relation(fields: [cotizacionId], references: [id])
+  insumoId     Int
+  insumo       Insumo @relation(fields: [insumoId], references: [id])
+  cantidad     Int
+  precioUnitario Float
+}
+
+model Remito {
+  id             Int @id @default(autoincrement())
+  numero         String @unique
+  tipo           TipoRemito // Usa el ENUM definido
+  referenciaId   Int? //indica el ID de la orden asociada.
+  referenciaTipo String? //specifica si la referencia es una "OrdenCompra" o "OrdenFabricacion".
+  depositoId     Int
+  deposito       Deposito @relation(fields: [depositoId], references: [id])
+  movimientos    Movimiento[]
+  fecha          DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  OrdenFabricacion OrdenFabricacion[]
+
+  OrdenCompra OrdenCompra[]
+}
+
+
+model Movimiento {
+  id          Int @id @default(autoincrement())
+  insumoId    Int
+  insumo      Insumo @relation(fields: [insumoId], references: [id])
+  depositoId  Int
+  deposito    Deposito @relation(fields: [depositoId], references: [id])
+  tipo        TipoMovimiento // Usa el ENUM definido
+  cantidad    Int
+  motivo      String?
+  referenciaId Int?
+  referenciaTipo String?
+  remitoId    Int?
+  remito      Remito? @relation(fields: [remitoId], references: [id])
+  fecha       DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

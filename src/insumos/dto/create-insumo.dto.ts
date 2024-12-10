@@ -9,9 +9,6 @@ export class CreateInsumoDto {
     @IsNumber({
         maxDecimalPlaces:5
     })
-    @Min(0)
-    @Type(() => Number)
-    public price: number;
 
     @IsNumber()
     @Min(0)
@@ -27,12 +24,6 @@ export class CreateInsumoDto {
     @IsNumber()
     @Min(0)
     public incomingStock: number;
-
-    @IsString()
-    public category: string;      // Categoría del insumo (e.g., memoria, disco, fuente)
-
-    @IsString()
-    public subcategory: string;   // Subcategoría del insumo (e.g., RAM, SSD, PSU)
 
     @IsString()
     public code: string;          // Código del insumo
